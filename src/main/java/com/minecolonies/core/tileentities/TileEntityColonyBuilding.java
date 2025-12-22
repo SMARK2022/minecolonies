@@ -459,11 +459,14 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
     public void tick()
     {
         final IColony colony = getColony();
-        if (colony != null)
+        final IBuilding building = getBuilding();
+        if (colony != null && building != null)
         {
             final Level world = colony.getWorld();
             boolean dirty = false;
             int rackCount = 0;
+            Set<BlockPos> newPositions = new HashSet<>();
+            // Check and update container positions for inventory synchronization
             for (final BlockPos pos : building.getContainers())
             {
                 if (WorldUtil.isBlockLoaded(world, pos) && !pos.equals(this.worldPosition))
@@ -472,6 +475,7 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
                     if (te instanceof AbstractTileEntityRack rack)
                     {
                         rack.setBuildingPos(getPosition());
+                        newPositions.add(pos);
 
                         if (!currentInvPositions.contains(pos))
                         {
@@ -487,10 +491,14 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
                 }
             }
 
+            // Invalidate cache only when containers change to avoid repeated recreation
             if (dirty || rackCount != currentInvPositions.size())
             {
                 combinedInv = null;
             }
+
+            // Update tracked positions for next tick comparison
+            currentInvPositions = newPositions;
         }
 
         if (!getLevel().isClientSide && colonyId == 0)
