@@ -231,7 +231,7 @@ public abstract class AbstractTileEntityRack extends BlockEntity implements Menu
      */
     public BlockPos getBuildingPos()
     {
-        return buildingPos; // 返回建筑位置
+        return buildingPos;
     }
 
     /**

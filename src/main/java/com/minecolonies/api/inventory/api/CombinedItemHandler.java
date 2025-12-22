@@ -50,12 +50,12 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
      */
     public CombinedItemHandler(@NotNull final List<IItemHandlerModifiable> handlers)
     {
-        this.handlers = handlers; // 存储handlers列表
+        this.handlers = handlers;
         for (final IItemHandler handler : handlers)
         {
             if (handler != null)
             {
-                totalSlots += handler.getSlots(); // 计算总slots数
+                totalSlots += handler.getSlots();
             }
         }
     }
@@ -68,12 +68,12 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         int index = 0;
         final ListTag handlerList = new ListTag();
         final ListTag indexList = new ListTag();
-        for (final IItemHandlerModifiable handlerModifiable : handlers) // 遍历所有handlers
+        for (final IItemHandlerModifiable handlerModifiable : handlers)
         {
-            if (handlerModifiable instanceof final INBTSerializable<?> serializable) // 使用模式匹配
+            if (handlerModifiable instanceof final INBTSerializable<?> serializable)
             {
-                handlerList.add(serializable.serializeNBT()); // 序列化handler
-                indexList.add(IntTag.valueOf(index)); // 记录索引
+                handlerList.add(serializable.serializeNBT());
+                indexList.add(IntTag.valueOf(index));
             }
 
             index++;
@@ -82,7 +82,7 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         compound.put(NBT_KEY_HANDLERS, handlerList);
         compound.put(NBT_KEY_HANDLERS_INDEXLIST, indexList);
 
-        return compound; // 返回序列化数据
+        return compound;
     }
 
     @SuppressWarnings(UNCHECKED)
@@ -92,16 +92,16 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         final ListTag handlerList = nbt.getList(NBT_KEY_HANDLERS, Tag.TAG_COMPOUND);
         final ListTag indexList = nbt.getList(NBT_KEY_HANDLERS_INDEXLIST, Tag.TAG_INT);
 
-        if (handlerList.size() == handlers.size()) // 检查handler数量是否匹配
+        if (handlerList.size() == handlers.size())
         {
             for (int i = 0; i < handlerList.size(); i++)
             {
                 final CompoundTag handlerCompound = handlerList.getCompound(i);
-                final IItemHandlerModifiable modifiable = handlers.get(indexList.getInt(i)); // 从List中获取
+                final IItemHandlerModifiable modifiable = handlers.get(indexList.getInt(i));
                 if (modifiable instanceof INBTSerializable)
                 {
                     final INBTSerializable<CompoundTag> serializable = (INBTSerializable<CompoundTag>) modifiable;
-                    serializable.deserializeNBT(handlerCompound); // 反序列化handler数据
+                    serializable.deserializeNBT(handlerCompound);
                 }
             }
         }
@@ -300,25 +300,25 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
     }
 
     @Override
-    public final boolean equals(final Object o) // 最终equals方法
+    public final boolean equals(final Object o)
     {
         if (this == o)
         {
-            return true; // 同一对象
+            return true;
         }
-        if (!(o instanceof final CombinedItemHandler that)) // 使用instanceof模式匹配
+        if (!(o instanceof final CombinedItemHandler that))
         {
-            return false; // 不是CombinedItemHandler
+            return false;
         }
 
-        return totalSlots == that.totalSlots && handlers.equals(that.handlers); // 比较slots和handlers
+        return totalSlots == that.totalSlots && handlers.equals(that.handlers);
     }
 
     @Override
     public int hashCode()
     {
-        int result = handlers.hashCode(); // 基于handlers列表的哈希码
-        result = 31 * result + totalSlots; // 合并totalSlots的哈希值
-        return result; // 返回最终哈希码
+        int result = handlers.hashCode();
+        result = 31 * result + totalSlots;
+        return result;
     }
 }

@@ -132,7 +132,6 @@ public class BlockMinecoloniesRack extends AbstractBlockMinecoloniesRack<BlockMi
     {
         super.destroy(level, pos, state);
 
-        // Remove rack from registered building
         final BlockEntity blockEntity = level.getBlockEntity(pos);
         if (level instanceof Level world && blockEntity instanceof TileEntityRack rack && rack.getBuildingPos() != BlockPos.ZERO)
         {
@@ -140,7 +139,7 @@ public class BlockMinecoloniesRack extends AbstractBlockMinecoloniesRack<BlockMi
             final IBuilding building = colony.getBuildingManager().getBuilding(rack.getBuildingPos());
             if (building != null)
             {
-                building.removeContainerPosition(pos); // 从建筑容器列表中移除
+                building.removeContainerPosition(pos);
             }
         }
     }
