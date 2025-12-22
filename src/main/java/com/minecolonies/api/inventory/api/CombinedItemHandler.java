@@ -4,37 +4,29 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.minecolonies.api.util.constant.Suppression.UNCHECKED;
 
 /**
  * Abstract class wrapping around multiple IItemHandler.
  */
-public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializable<CompoundTag>, IWorldNameableModifiable
+public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializable<CompoundTag>
 {
 
-    ///NBT Constants
+    /// NBT Constants
     private static final String NBT_KEY_HANDLERS           = "Handlers";
     private static final String NBT_KEY_HANDLERS_INDEXLIST = "Index";
-    private static final String NBT_KEY_NAME               = "Name";
 
-    private final IItemHandlerModifiable[] handlers;
-
-    @NotNull
-    private String defaultName = "";
-
-    @NotNull
-    private String customName = "";
+    private final List<IItemHandlerModifiable> handlers;
 
     /**
      * Total slots of the item handler.
@@ -44,33 +36,28 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
     /**
      * Method to create a new {@link CombinedItemHandler}.
      *
-     * @param defaultName The default name of this {@link CombinedItemHandler}.
-     * @param handlers    The combining {@link IItemHandlerModifiable}.
+     * @param handlers The combining {@link IItemHandlerModifiable}.
      */
-    public CombinedItemHandler(@NotNull final String defaultName, @NotNull final IItemHandlerModifiable... handlers)
+    public CombinedItemHandler(@NotNull final IItemHandlerModifiable... handlers)
     {
-        this.handlers = handlers;
-        this.defaultName = defaultName;
+        this(new ArrayList<>(List.of(handlers))); // 转换数组为List
+    }
+
+    /**
+     * Method to create a new {@link CombinedItemHandler}.
+     *
+     * @param handlers The combining {@link IItemHandlerModifiable}.
+     */
+    public CombinedItemHandler(@NotNull final List<IItemHandlerModifiable> handlers)
+    {
+        this.handlers = handlers; // 存储handlers列表
         for (final IItemHandler handler : handlers)
         {
             if (handler != null)
             {
-                totalSlots += handler.getSlots();
+                totalSlots += handler.getSlots(); // 计算总slots数
             }
         }
-    }
-
-    /**
-     * Method to create a new combined {@link CombinedItemHandler} with a given custom name.
-     *
-     * @param defaultName The name of this {@link CombinedItemHandler}.
-     * @param customName  The preset custom name of this {@link CombinedItemHandler}.
-     * @param handlers    The combinging {@link IItemHandlerModifiable}.
-     */
-    public CombinedItemHandler(@NotNull final String defaultName, @NotNull final String customName, @NotNull final IItemHandlerModifiable... handlers)
-    {
-        this(defaultName, handlers);
-        this.customName = customName;
     }
 
     @Override
@@ -81,13 +68,12 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         int index = 0;
         final ListTag handlerList = new ListTag();
         final ListTag indexList = new ListTag();
-        for (final IItemHandlerModifiable handlerModifiable : handlers)
+        for (final IItemHandlerModifiable handlerModifiable : handlers) // 遍历所有handlers
         {
-            if (handlerModifiable instanceof INBTSerializable)
+            if (handlerModifiable instanceof final INBTSerializable<?> serializable) // 使用模式匹配
             {
-                final INBTSerializable<?> serializable = (INBTSerializable<?>) handlerModifiable;
-                handlerList.add(serializable.serializeNBT());
-                indexList.add(IntTag.valueOf(index));
+                handlerList.add(serializable.serializeNBT()); // 序列化handler
+                indexList.add(IntTag.valueOf(index)); // 记录索引
             }
 
             index++;
@@ -96,12 +82,7 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         compound.put(NBT_KEY_HANDLERS, handlerList);
         compound.put(NBT_KEY_HANDLERS_INDEXLIST, indexList);
 
-        if (customName != null)
-        {
-            compound.putString(NBT_KEY_NAME, customName);
-        }
-
-        return compound;
+        return compound; // 返回序列化数据
     }
 
     @SuppressWarnings(UNCHECKED)
@@ -111,21 +92,19 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         final ListTag handlerList = nbt.getList(NBT_KEY_HANDLERS, Tag.TAG_COMPOUND);
         final ListTag indexList = nbt.getList(NBT_KEY_HANDLERS_INDEXLIST, Tag.TAG_INT);
 
-        if (handlerList.size() == handlers.length)
+        if (handlerList.size() == handlers.size()) // 检查handler数量是否匹配
         {
             for (int i = 0; i < handlerList.size(); i++)
             {
                 final CompoundTag handlerCompound = handlerList.getCompound(i);
-                final IItemHandlerModifiable modifiable = handlers[indexList.getInt(i)];
+                final IItemHandlerModifiable modifiable = handlers.get(indexList.getInt(i)); // 从List中获取
                 if (modifiable instanceof INBTSerializable)
                 {
                     final INBTSerializable<CompoundTag> serializable = (INBTSerializable<CompoundTag>) modifiable;
-                    serializable.deserializeNBT(handlerCompound);
+                    serializable.deserializeNBT(handlerCompound); // 反序列化handler数据
                 }
             }
         }
-
-        setName(nbt.contains(NBT_KEY_NAME) ? nbt.getString(NBT_KEY_NAME) : null);
     }
 
     /**
@@ -137,7 +116,7 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
      * @throws RuntimeException if the handler is called in a way that the handler was not expecting.
      **/
     @Override
-    public void setStackInSlot(final int slot, final ItemStack stack)
+    public void setStackInSlot(final int slot, final @NotNull ItemStack stack)
     {
         int activeSlot = slot;
 
@@ -320,57 +299,26 @@ public class CombinedItemHandler implements IItemHandlerModifiable, INBTSerializ
         return false;
     }
 
-    protected IItemHandlerModifiable[] getHandlers()
-    {
-        return handlers.clone();
-    }
-
     @Override
-    public void setName(@Nullable final String name)
-    {
-        this.customName = name == null ? "" : name;
-    }
-
-    @NotNull
-    @Override
-    public Component getName()
-    {
-        return Component.literal(customName.isEmpty() ? defaultName : customName);
-    }
-
-    @Override
-    public boolean equals(final Object o)
+    public final boolean equals(final Object o) // 最终equals方法
     {
         if (this == o)
         {
-            return true;
+            return true; // 同一对象
         }
-        if (o == null || getClass() != o.getClass())
+        if (!(o instanceof final CombinedItemHandler that)) // 使用instanceof模式匹配
         {
-            return false;
-        }
-        final CombinedItemHandler that = (CombinedItemHandler) o;
-
-        if (handlers.length != that.handlers.length)
-        {
-            return false;
+            return false; // 不是CombinedItemHandler
         }
 
-        final int length = handlers.length;
-        for (int i = 0; i < length; i++)
-        {
-            if (handlers[i] != that.handlers[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return totalSlots == that.totalSlots && handlers.equals(that.handlers); // 比较slots和handlers
     }
 
     @Override
     public int hashCode()
     {
-        return Arrays.hashCode(handlers);
+        int result = handlers.hashCode(); // 基于handlers列表的哈希码
+        result = 31 * result + totalSlots; // 合并totalSlots的哈希值
+        return result; // 返回最终哈希码
     }
 }

@@ -139,7 +139,7 @@ public abstract class AbstractBuildingContainer extends AbstractSchematicProvide
     @Override
     public List<BlockPos> getContainers()
     {
-        final List<BlockPos> list = new ArrayList<>(containerList);;
+        final List<BlockPos> list = new ArrayList<>(containerList);
         list.add(this.getPosition());
         return list;
     }
@@ -181,7 +181,7 @@ public abstract class AbstractBuildingContainer extends AbstractSchematicProvide
     }
 
     /**
-     * Gets the list of tags, and finds the first location registered there. 
+     * Gets the list of tags, and finds the first location registered there.
      * @param tagName the name of the tag to query
      * @return the BlockPos, or null if not found
      */

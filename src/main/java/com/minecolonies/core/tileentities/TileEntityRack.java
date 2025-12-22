@@ -508,7 +508,7 @@ public class TileEntityRack extends AbstractTileEntityRack implements IMateriall
                         return new RackInventory(0);
                     }
 
-                    return new CombinedItemHandler(RACK, getInventory());
+                    return new CombinedItemHandler(getInventory()); // 移除RACK字符串参数
                 });
                 return lastOptional.cast();
             }
@@ -523,7 +523,7 @@ public class TileEntityRack extends AbstractTileEntityRack implements IMateriall
                         return new RackInventory(0);
                     }
 
-                    return new CombinedItemHandler(RACK, getInventory());
+                    return new CombinedItemHandler(getInventory()); // 移除RACK字符串参数
                 });
                 return lastOptional.cast();
             }
@@ -539,16 +539,16 @@ public class TileEntityRack extends AbstractTileEntityRack implements IMateriall
                     final AbstractTileEntityRack other = getOtherChest();
                     if (other == null)
                     {
-                        return new CombinedItemHandler(RACK, getInventory());
+                        return new CombinedItemHandler(getInventory()); // 移除RACK字符串参数
                     }
 
                     if (type != RackType.NO_RENDER)
                     {
-                        return new CombinedItemHandler(RACK, getInventory(), other.getInventory());
+                        return new CombinedItemHandler(getInventory(), other.getInventory()); // 移除RACK字符串参数
                     }
                     else
                     {
-                        return new CombinedItemHandler(RACK, other.getInventory(), getInventory());
+                        return new CombinedItemHandler(other.getInventory(), getInventory()); // 移除RACK字符串参数
                     }
                 });
 

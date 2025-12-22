@@ -120,6 +120,11 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
     private LazyOptional<CombinedItemHandler> combinedInv;
 
     /**
+     * A list containing the current positions in the {@link TileEntityColonyBuilding#combinedInv}.
+     */
+    private Set<BlockPos> currentInvPositions = new HashSet<>();
+
+    /**
      * Pending blueprint future.
      */
     private Future<Blueprint> pendingBlueprintFuture = null;
@@ -453,11 +458,42 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
     @Override
     public void tick()
     {
-        if (combinedInv != null)
+        final IColony colony = getColony();
+        if (colony != null)
         {
-            combinedInv.invalidate();
-            combinedInv = null;
+            final Level world = colony.getWorld();
+            boolean dirty = false;
+            int rackCount = 0;
+            for (final BlockPos pos : building.getContainers())
+            {
+                if (WorldUtil.isBlockLoaded(world, pos) && !pos.equals(this.worldPosition))
+                {
+                    final BlockEntity te = world.getBlockEntity(pos);
+                    if (te instanceof AbstractTileEntityRack rack)
+                    {
+                        rack.setBuildingPos(getPosition()); // 设置建筑位置
+
+                        if (!currentInvPositions.contains(pos))
+                        {
+                            dirty = true; // 位置列表已改变
+                        }
+
+                        rackCount++;
+                    }
+                    else
+                    {
+                        building.removeContainerPosition(pos); // 移除非Rack容器
+                    }
+                }
+            }
+
+            if (dirty || rackCount != currentInvPositions.size())
+            {
+                invalidateCapabilities(); // 失效容量缓存
+                combinedInv = null; // 清空组合库存
+            }
         }
+
         if (!getLevel().isClientSide && colonyId == 0)
         {
             final IColony tempColony = IColonyManager.getInstance().getColonyByPosFromWorld(getLevel(), this.getPosition());
@@ -628,34 +664,30 @@ public class TileEntityColonyBuilding extends AbstractTileEntityColonyBuilding i
         {
             if (combinedInv == null)
             {
-                //Add additional containers
-                final Set<IItemHandlerModifiable> handlers = new LinkedHashSet<>();
+                final List<IItemHandlerModifiable> handlers = new ArrayList<>(); // 使用ArrayList存储handlers
+                final Set<BlockPos> newPositions = new HashSet<>(); // 跟踪新位置
+
                 final Level world = colony.getWorld();
-                if (world != null)
+                for (final BlockPos pos : building.getContainers())
                 {
-                    for (final BlockPos pos : building.getContainers())
+                    if (WorldUtil.isBlockLoaded(world, pos) && !pos.equals(this.worldPosition))
                     {
-                        if (WorldUtil.isBlockLoaded(world, pos) && !pos.equals(this.worldPosition))
+                        final BlockEntity te = world.getBlockEntity(pos);
+                        if (te instanceof final AbstractTileEntityRack rack)
                         {
-                            final BlockEntity te = world.getBlockEntity(pos);
-                            if (te != null)
-                            {
-                                if (te instanceof AbstractTileEntityRack)
-                                {
-                                    handlers.add(((AbstractTileEntityRack) te).getInventory());
-                                    ((AbstractTileEntityRack) te).setBuildingPos(this.getBlockPos());
-                                }
-                                else
-                                {
-                                    building.removeContainerPosition(pos);
-                                }
-                            }
+                            handlers.add(rack.getInventory()); // 添加Rack库存
+                            newPositions.add(pos); // 记录位置
+                        }
+                        else
+                        {
+                            building.removeContainerPosition(pos); // 移除非Rack容器
                         }
                     }
                 }
-                handlers.add(this.getInventory());
+                handlers.add(this.getInventory()); // 添加当前方块的库存
 
-                combinedInv = LazyOptional.of(() -> new CombinedItemHandler(building.getSchematicName(), handlers.toArray(new IItemHandlerModifiable[0])));
+                combinedInv = LazyOptional.of(() -> new CombinedItemHandler(handlers)); // 创建组合库存处理器
+                currentInvPositions = newPositions; // 更新位置列表
             }
             return (LazyOptional<T>) combinedInv;
         }
