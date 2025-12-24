@@ -135,7 +135,7 @@ public abstract class AbstractEntityAICrafting<J extends AbstractJobCrafter<?, J
      */
     protected void recordCraftingBuildingStats(IRequest<?> request, IRecipeStorage recipe)
     {
-        if (recipe == null) 
+        if (recipe == null)
         {
             return;
         }
@@ -363,12 +363,31 @@ public abstract class AbstractEntityAICrafting<J extends AbstractJobCrafter<?, J
           stack -> ItemStackUtils.compareItemStacksIgnoreStackSize(stack, currentRecipeStorage.getPrimaryOutput()));
         final int inProgressCount = getExtendedCount(currentRecipeStorage.getPrimaryOutput());
 
-        final int countPerIteration = currentRecipeStorage.getPrimaryOutput().getCount();
+        final int countPerIteration = Math.max(currentRecipeStorage.getPrimaryOutput().getCount(), 1); // output per craft op (e.g., carpet=3)
         final int doneOpsCount = currentCount / countPerIteration;
         final int progressOpsCount = inProgressCount / countPerIteration;
 
-        final int minRemainingOpsCount = currentRequest.getRequest().getMinCount() - doneOpsCount - progressOpsCount;
-        int availableOpsCount = currentRequest.getRequest().getCount();
+        final int reqOpsCount = (currentRequest.getRequest().getCount() + countPerIteration - 1) / countPerIteration; // requested ops = ceil(requestItems/outputPerOp)
+        final int minReqOpsCount = (currentRequest.getRequest().getMinCount() + countPerIteration - 1) / countPerIteration; // min requested ops (same unit)
+        final int minRemainingOpsCount = Math.max(0, minReqOpsCount - doneOpsCount - progressOpsCount); // remaining ops needed to satisfy minCount
+        int availableOpsCount = reqOpsCount; // ops (NOT items)
+
+        // Debug: Recipe and output info
+        // Log.getLogger().info("[CRAFT_DEBUG] ========== getRecipe() START ==========");
+        // Log.getLogger().info("[CRAFT_DEBUG] Recipe Output: item={}, outputPerOp={} items",
+        //         currentRecipeStorage.getPrimaryOutput().getItem().toString(),
+        //         countPerIteration);
+        // Log.getLogger().info("[CRAFT_DEBUG] Request: reqItems={}, minItems={}, reqOps={}, minReqOps={}",
+        //         currentRequest.getRequest().getCount(),
+        //         currentRequest.getRequest().getMinCount(),
+        //         reqOpsCount,
+        //         minReqOpsCount);
+        // Log.getLogger().info("[CRAFT_DEBUG] Progress: doneOps={}, progressOps={}, minRemainingOps={}",
+        //         doneOpsCount,
+        //         progressOpsCount,
+        //         minRemainingOpsCount);
+        // Log.getLogger().info("[CRAFT_DEBUG] Input items (total={}):", currentRecipeStorage.getCleanedInput().size());
+
         final List<ItemStorage> input = currentRecipeStorage.getCleanedInput();
         for (final ItemStorage inputStorage : input)
         {
@@ -379,15 +398,26 @@ public abstract class AbstractEntityAICrafting<J extends AbstractJobCrafter<?, J
                   && ItemStackUtils.compareItemStackListIgnoreStackSize(currentRecipeStorage.getCraftingToolsAndSecondaryOutputs(), inputStorage.getItemStack(), false, true))
             {
                 remaining = inputStorage.getAmount();
+                // Log.getLogger().info("[CRAFT_DEBUG]   - {} (tool/secondary): need={}, isToolOrContainer=true",
+                //         inputStorage.getItemStack().getItem().toString(),
+                //         remaining);
             }
             else if (!ItemStackUtils.isEmpty(container) && ItemStackUtils.compareItemStacksIgnoreStackSize(inputStorage.getItemStack(), container, false, true))
             {
                 remaining = inputStorage.getAmount();
+                // Log.getLogger().info("[CRAFT_DEBUG]   - {} (container): need={}, isToolOrContainer=true",
+                //         inputStorage.getItemStack().getItem().toString(),
+                //         remaining);
             }
             else
             {
                 remaining = inputStorage.getAmount() * minRemainingOpsCount;
                 isToolOrContainer = false;
+                // Log.getLogger().info("[CRAFT_DEBUG]   - {} (ingredient): amountPerOp={}, minRemainingOps={}, totalNeed={}",
+                //         inputStorage.getItemStack().getItem().toString(),
+                //         inputStorage.getAmount(),
+                //         minRemainingOpsCount,
+                //         remaining);
             }
 
             final int availableCount = InventoryUtils.getCountFromBuilding(building, itemStack -> ItemStackUtils.compareItemStacksIgnoreStackSize(itemStack, inputStorage.getItemStack(), false, true))
@@ -397,20 +427,39 @@ public abstract class AbstractEntityAICrafting<J extends AbstractJobCrafter<?, J
 
             if (availableCount < remaining)
             {
+                // Log.getLogger().warn("[CRAFT_DEBUG]   ! INSUFFICIENT: available={}, need={}, FAILING this recipe",
+                //         availableCount,
+                //         remaining);
                 currentRecipeStorage = null;
                 job.finishRequest(false);
                 incrementActionsDone(getActionRewardForCraftingSuccess());
                 return START_WORKING;
             }
 
+            // Log.getLogger().info("[CRAFT_DEBUG]   ! OK: available={}, need={}, suffix=OK",
+            //         availableCount,
+            //         remaining);
+
             if (!isToolOrContainer)
             {
-                availableOpsCount = Math.min(Math.min(availableCount, currentRequest.getRequest().getCount()), availableOpsCount);
+                final int possibleOps = availableCount / Math.max(inputStorage.getAmount(), 1); // ingredient-limited ops (NOT items)
+                availableOpsCount = Math.min(availableOpsCount, possibleOps); // keep lowest limiting ingredient
+                // Log.getLogger().info("[CRAFT_DEBUG]     possibleOps={}, availableOpsCount (limited)={}",
+                //         possibleOps,
+                //         availableOpsCount);
             }
         }
 
-        job.setMaxCraftingCount(Math.min(availableOpsCount + doneOpsCount, currentRequest.getRequest().getCount()));
+        job.setMaxCraftingCount(Math.min(availableOpsCount + doneOpsCount, reqOpsCount)); // max ops this batch (prevents carpet loop)
         job.setCraftCounter(doneOpsCount);
+
+        // Log.getLogger().info("[CRAFT_DEBUG] FINAL: availableOpsCount={}, doneOpsCount={}, reqOpsCount={}, maxCraftingCount={}",
+        //         availableOpsCount,
+        //         doneOpsCount,
+        //         reqOpsCount,
+        //         job.getMaxCraftingCount());
+        // Log.getLogger().info("[CRAFT_DEBUG] ========== getRecipe() END ==========");
+
         return QUERY_ITEMS;
     }
 
